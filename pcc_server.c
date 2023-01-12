@@ -13,18 +13,23 @@
 /* some of the code is from recreation 10 */
 
 uint32_t pcc_total[95] = {0}; /* 126-32+1 = 95 printable characters*/
-int flag;
+int flag, connfd = -1, listenfd = -1;
 
-void signal_handler(){
+void finish(){
     int i;
-    if(flag == 0){
-        for(i = 0; i < 95; i++){
-            printf("char '%c' : %u times\n",i+32, pcc_total[i]);
-        }
-        exit(0);
+    for(i = 0; i < 95; i++){
+        printf("char '%c' : %u times\n",i+32, pcc_total[i]);
+    }
+    close(listenfd);
+    exit(0);
+}
+void signal_handler(){
+    if(connfd < 0){
+        finish();
     }
     flag = 1;
 }
+
 /*
  * sets given array elements to zero
  */
@@ -59,17 +64,19 @@ void pcc_total_update(uint32_t connection_total[]){
  */
 int main(int argc, char *argv[])
 {
-    int listenfd = -1, connfd= -1,val = 1, /*left,leftBuff,*/ buff_size,i;
+    int val = 1, buff_size;
     uint16_t port;
     uint32_t N, C, left, leftBuff;
     uint32_t connection_total[95]={0};
     char *num_buff, *buffer;
-    int bytes_written = 0, bytes_read=0, curr_written = 0, curr_read = 0, bytes_total=0;
+    int bytes_written = 0, bytes_read=0, curr_written = 0, curr_read = 0;
+    listenfd = -1;
+    flag = 0;
 
     struct sockaddr_in serv_addr;
-    socklen_t addrsize = sizeof(struct sockaddr_in );
+    socklen_t addrsize = sizeof(struct sockaddr_in);
 
-    flag = 0;
+    flag = 0; /* SIGINT flag */
     struct sigaction new_action = {//check!!
             .sa_handler = signal_handler,
             .sa_flags = SA_RESTART
@@ -111,7 +118,10 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    while(flag == 0){
+    while(1){
+        if(flag){ /* previous client received SIGINT */
+            finish();
+        }
         // Accept a connection.
         connfd = accept(listenfd, NULL, &addrsize);
         if(connfd < 0)
@@ -131,14 +141,14 @@ int main(int argc, char *argv[])
                 perror("Client process was killed unexpectedly");
                 close(connfd);
                 connfd = -1;
-                continue;//or break?
+                break;
             }
             if(curr_read < 0){
                 if(errno == ETIMEDOUT || errno == ECONNRESET || errno == EPIPE){ /*TCP errors given in instructions */
                     perror("TCP error occurred while reading N");
                     close(connfd);
                     connfd = -1;
-                    continue;
+                    break;
                 }
                 else{
                     perror("Failed to read N from client");
@@ -151,7 +161,7 @@ int main(int argc, char *argv[])
             left -= curr_read;
         }
 
-        if(connfd == -1){ /* connection was closed in nested while */
+        if(connfd == -1){ /* connection failed in nested while */
             continue;
         }
         N = ntohl(N);
@@ -177,14 +187,14 @@ int main(int argc, char *argv[])
                     perror("Client process was killed unexpectedly");
                     close(connfd);
                     connfd = -1;
-                    break; //?
+                    break;
                 }
                 if(curr_read < 0){
                     if(errno == ETIMEDOUT || errno == ECONNRESET || errno == EPIPE){ /*TCP errors given in instructions */
                         perror("TCP error occurred while reading N");
                         close(connfd);
                         connfd = -1;
-                        break;//?
+                        break;
                     }
                     else{
                         perror("Failed to read file content sent by client");
@@ -193,6 +203,10 @@ int main(int argc, char *argv[])
                         exit(1);
                     }
                 }
+            }
+
+            if(connfd == -1){ /* connection failed in nested while */
+                continue;
             }
 
             /* count printable characters in received data */
@@ -214,14 +228,14 @@ int main(int argc, char *argv[])
                 perror("Client process was killed unexpectedly");
                 close(connfd);
                 connfd = -1;
-                continue;//or break?
+                break;
             }
             if(curr_written < 0){
                 if(errno == ETIMEDOUT || errno == ECONNRESET || errno == EPIPE){ /*TCP errors given in instructions */
                     perror("TCP error occurred while writing C");
                     close(connfd);
                     connfd = -1;
-                    continue;
+                    break;
                 }
                 else{
                     perror("Failed to write C to client");
@@ -233,14 +247,15 @@ int main(int argc, char *argv[])
             num_buff += curr_written;
             left -= curr_written;
         }
+
+        if(connfd == -1){ /* connection failed in nested while */
+            continue;
+        }
+
         /* update pcc_total with calculated connections printable characters counts*/
         pcc_total_update(connection_total);
         /* close socket */
         close(connfd);
     }
-    for(i = 0; i < 95; i++){
-        printf("char '%c' : %u times\n",i+32, pcc_total[i]);
-    }
-    close(listenfd);
-    exit(0);
+    exit(0); //not sure
 }
