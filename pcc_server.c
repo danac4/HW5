@@ -59,9 +59,9 @@ void pcc_total_update(uint32_t connection_total[]){
  */
 int main(int argc, char *argv[])
 {
-    int listenfd = -1, connfd= -1,val = 1, left, buff_size,i;
+    int listenfd = -1, connfd= -1,val = 1, /*left,leftBuff,*/ buff_size,i;
     uint16_t port;
-    uint32_t N, C, cnt;
+    uint32_t N, C, left, leftBuff;
     uint32_t connection_total[95]={0};
     char *num_buff, *buffer;
     int bytes_written = 0, bytes_read=0, curr_written = 0, curr_read = 0, bytes_total=0;
@@ -157,41 +157,34 @@ int main(int argc, char *argv[])
         N = ntohl(N);
 
         /* calculate printable character count (C) */
-        //not sure about this part:(
-        buff_size = (N < BUFF_SIZE) ? N : BUFF_SIZE;
-        buffer = malloc(buff_size);
-        if(!buffer){//? what to do?
-            perror("Failed to allocate memory for buffer");
-            exit(1);
-        }
-        memset(buffer, 0, buff_size);
         left = N;
-        bytes_total = 0;//need it? or can i replace with bytes written
-        bytes_read = 0;
         C = 0;
-        while(left > 0){ //need to add check buffer if not the entire size.
-            bytes_written = 0;//?
-            while(bytes_read < buff_size){
-                curr_read = read(connfd,buffer,buff_size-bytes_read);
+        while(left > 0){
+            buff_size = (left < BUFF_SIZE) ? left : BUFF_SIZE;
+            buffer = malloc(buff_size);
+            if(!buffer){//? what to do?
+                perror("Failed to allocate memory for buffer");
+                exit(1);
+            }
+            memset(buffer, 0, buff_size);
+            leftBuff = buff_size;
+            bytes_read = 0;
+            while(leftBuff > 0){
+                curr_read = read(connfd,buffer+bytes_read,leftBuff);
                 bytes_read += curr_read;
-                bytes_total += curr_read;
+                leftBuff -= curr_read;
                 if(curr_read == 0){
-                    if(bytes_read != buff_size){
-                        perror("Client process was killed unexpectedly");
-                        close(connfd);
-                        connfd = -1;
-                        continue;
-                    }
-                    else{ //???
-                        break;
-                    }
+                    perror("Client process was killed unexpectedly");
+                    close(connfd);
+                    connfd = -1;
+                    break; //?
                 }
                 if(curr_read < 0){
                     if(errno == ETIMEDOUT || errno == ECONNRESET || errno == EPIPE){ /*TCP errors given in instructions */
                         perror("TCP error occurred while reading N");
                         close(connfd);
                         connfd = -1;
-                        continue;
+                        break;//?
                     }
                     else{
                         perror("Failed to read file content sent by client");
@@ -201,11 +194,12 @@ int main(int argc, char *argv[])
                     }
                 }
             }
+
             /* count printable characters in received data */
             reset_array(connection_total);
-            C += cnt_connection_total(buffer, bytes_read, connection_total);
-            memset(buffer, 0, buff_size);
-            left -= bytes_read;
+            C += cnt_connection_total(buffer, bytes_read, connection_total);//bytes read or buff size?
+            free(buffer);
+            left -= bytes_read;//or buffsize?
         }
 
         /* sending number of printable characters (C) to client */
