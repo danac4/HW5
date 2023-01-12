@@ -10,6 +10,7 @@
 #include <signal.h>
 
 #define BUFF_SIZE 1000000 /* buffer max size is 1MB */
+
 /* some of the code is from recreation 10 */
 
 uint32_t pcc_total[95] = {0}; /* 126-32+1 = 95 printable characters*/
@@ -206,7 +207,7 @@ int main(int argc, char *argv[])
             }
 
             if(connfd == -1){ /* connection failed in nested while */
-                continue;
+                break;
             }
 
             /* count printable characters in received data */
@@ -214,6 +215,10 @@ int main(int argc, char *argv[])
             C += cnt_connection_total(buffer, bytes_read, connection_total);//bytes read or buff size?
             free(buffer);
             left -= bytes_read;//or buffsize?
+        }
+
+        if(connfd == -1){ /* connection failed in nested while */
+            break;
         }
 
         /* sending number of printable characters (C) to client */
