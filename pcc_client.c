@@ -114,7 +114,7 @@ int main(int argc, char *argv[]){
     /* get the number of printable characters received from the server */
     bytes_read = 0;
     num_buff = (char *)&C;
-    left = sizeof(C);
+    left = sizeof(unsigned int);
     while(left > 0){
         curr_read = read(sockfd, num_buff, left);
         if(curr_read <= 0){
