@@ -43,10 +43,11 @@ void reset_array(uint32_t arr[]){
 
 uint32_t cnt_connection_total(char* buffer, int size, uint32_t connection_total[]){
     int i;
-    uint32_t cnt = 0;
+    uint32_t integer, cnt = 0;
     for(i = 0; i < size; i++){
-        if(31 < buffer[i] && buffer[i] < 127){ /* is printable character */
-            connection_total[(uint32_t)(buffer[i]-32)] += 1;
+        integer = (uint32_t)buffer[i];
+        if(31 < integer && integer < 127){ /* is printable character */
+            connection_total[(uint32_t)(integer-32)] += 1;
             cnt += 1;
         }
     }
@@ -69,7 +70,7 @@ int main(int argc, char *argv[])
     uint16_t port;
     uint32_t N, C, left, leftBuff;
     uint32_t connection_total[95]={0};
-    char *num_buff, *buffer;
+    char *integer_buff, *buffer;
     int bytes_written = 0, bytes_read=0, curr_written = 0, curr_read = 0;
     listenfd = -1;
     flag = 0;
@@ -87,7 +88,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     if(argc != 2){
-        perror("Invalid number of arguments passed to pcc_server!");
+        perror("Invalid integerber of arguments passed to pcc_server!");
         exit(1);
     }
 
@@ -103,7 +104,12 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    port = atoi(argv[1]);
+    port = (uint16_t)atoi(argv[1]);
+    if(port < 1024){
+        perror("Invalid port!");
+        exit(1);
+    }
+
     memset(&serv_addr, 0, addrsize);
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -124,7 +130,7 @@ int main(int argc, char *argv[])
             finish();
         }
         // Accept a connection.
-        connfd = accept(listenfd, NULL, &addrsize);
+        connfd = accept(listenfd, NULL, NULL);
         if(connfd < 0)
         {
             perror("accept failed");
@@ -133,10 +139,10 @@ int main(int argc, char *argv[])
 
         /* get N from client */
         left = sizeof(unsigned int);
-        num_buff = (char*)&N;
+        integer_buff = (char*)&N;
         bytes_read = 0;
         while(left > 0){
-            curr_read = read(connfd, num_buff, left);
+            curr_read = read(connfd, integer_buff, left);
             bytes_read += curr_read;
             if(curr_read == 0 && bytes_read != sizeof(unsigned int)){
                 perror("Client process was killed unexpectedly");
@@ -158,7 +164,7 @@ int main(int argc, char *argv[])
                     exit(1);
                 }
             }
-            num_buff += curr_read;
+            integer_buff += curr_read;
             left -= curr_read;
         }
 
@@ -178,31 +184,25 @@ int main(int argc, char *argv[])
                 exit(1);
             }
             memset(buffer, 0, buff_size);
-            leftBuff = buff_size;
-            bytes_read = 0;
-            while(leftBuff > 0){
-                curr_read = read(connfd,buffer+bytes_read,leftBuff);
-                bytes_read += curr_read;
-                leftBuff -= curr_read;
-                if(curr_read == 0){
-                    perror("Client process was killed unexpectedly");
+            curr_read = read(connfd,buffer,buff_size);
+            if(curr_read == 0){
+                perror("Client process was killed unexpectedly");
+                close(connfd);
+                connfd = -1;
+                break;
+            }
+            if(curr_read < 0){
+                if(errno == ETIMEDOUT || errno == ECONNRESET || errno == EPIPE){ /*TCP errors given in instructions */
+                    perror("TCP error occurred while reading N");
                     close(connfd);
                     connfd = -1;
                     break;
                 }
-                if(curr_read < 0){
-                    if(errno == ETIMEDOUT || errno == ECONNRESET || errno == EPIPE){ /*TCP errors given in instructions */
-                        perror("TCP error occurred while reading N");
-                        close(connfd);
-                        connfd = -1;
-                        break;
-                    }
-                    else{
-                        perror("Failed to read file content sent by client");
-                        close(connfd);
-                        connfd = -1;
-                        exit(1);
-                    }
+                else{
+                    perror("Failed to read file content sent by client");
+                    close(connfd);
+                    connfd = -1;
+                    exit(1);
                 }
             }
 
@@ -212,22 +212,22 @@ int main(int argc, char *argv[])
 
             /* count printable characters in received data */
             reset_array(connection_total);
-            C += cnt_connection_total(buffer, bytes_read, connection_total);//bytes read or buff size?
+            C += cnt_connection_total(buffer, curr_read, connection_total);
             free(buffer);
-            left -= bytes_read;//or buffsize?
+            left -= curr_read;
         }
 
         if(connfd == -1){ /* connection failed in nested while */
-            break;
+            continue;
         }
 
-        /* sending number of printable characters (C) to client */
+        /* sending integerber of printable characters (C) to client */
         C = htonl(C);
-        num_buff = (char*)&C;
+        integer_buff = (char*)&C;
         left = sizeof(unsigned int);
         bytes_written = 0;
         while(left > 0){
-            curr_written = write(connfd, num_buff, left);
+            curr_written = write(connfd, integer_buff, left);
             bytes_written += curr_written;
             if(curr_written == 0 && bytes_written != sizeof(unsigned int)){
                 perror("Client process was killed unexpectedly");
@@ -249,7 +249,7 @@ int main(int argc, char *argv[])
                     exit(1);
                 }
             }
-            num_buff += curr_written;
+            integer_buff += curr_written;
             left -= curr_written;
         }
 
@@ -261,6 +261,8 @@ int main(int argc, char *argv[])
         pcc_total_update(connection_total);
         /* close socket */
         close(connfd);
+        connfd = -1;
     }
+    close(listenfd);
     exit(0); //not sure
 }
