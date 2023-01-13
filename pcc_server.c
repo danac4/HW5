@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     if(argc != 2){
-        perror("Invalid integerber of arguments passed to pcc_server!");
+        perror("Invalid number of arguments passed to pcc_server!");
         exit(1);
     }
 
@@ -179,7 +179,7 @@ int main(int argc, char *argv[])
         while(left > 0){
             buff_size = (left < BUFF_SIZE) ? left : BUFF_SIZE;
             buffer = malloc(buff_size);
-            if(!buffer){//? what to do?
+            if(!buffer){
                 perror("Failed to allocate memory for buffer");
                 exit(1);
             }
@@ -211,13 +211,13 @@ int main(int argc, char *argv[])
             }
 
             /* count printable characters in received data */
-            reset_array(connection_total);
             C += cnt_connection_total(buffer, curr_read, connection_total);
             free(buffer);
             left -= curr_read;
         }
 
         if(connfd == -1){ /* connection failed in nested while */
+            reset_array(connection_total);
             continue;
         }
 
@@ -254,15 +254,17 @@ int main(int argc, char *argv[])
         }
 
         if(connfd == -1){ /* connection failed in nested while */
+            reset_array(connection_total);
             continue;
         }
 
         /* update pcc_total with calculated connections printable characters counts*/
         pcc_total_update(connection_total);
+        reset_array(connection_total);
         /* close socket */
         close(connfd);
         connfd = -1;
     }
     close(listenfd);
-    exit(0); //not sure
+    exit(0);
 }

@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
     char *buffer,*num_buff;
     int bytes_written = 0, bytes_read=0, curr_written = 0, curr_read = 0, sockfd = -1, left;
     struct sockaddr_in serv_addr;
-    socklen_t addrsize = sizeof(struct sockaddr_in );
+
     if(argc != 4){
         perror("Invalid number of arguments passed to pcc_client!");
         exit(1);
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]){
     left = sizeof(num);
     while(left > 0){
         curr_written = write(sockfd, num_buff, left);
-        if(curr_written <= 0){//<= or <
+        if(curr_written <= 0){
             perror("Write failed while trying to send N to server");
             exit(1);
         }
@@ -93,13 +93,13 @@ int main(int argc, char *argv[]){
     bytes_written = 0;
     while(bytes_read < N){
         curr_read = fread(buffer, 1,buff_size,fp);
-        if(ferror(fp) != 0){ //?
+        if(ferror(fp) != 0){
             perror("Failed to read file's content");
             exit(1);
         }
         while(bytes_written < curr_read){
             curr_written = write(sockfd, buffer+bytes_written, curr_read - bytes_written);
-            if(curr_written <= 0){ //<= or <
+            if(curr_written <= 0){
                 perror("Failed to write file's content to server");
                 exit(1);
             }
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]){
         num_buff += curr_read;
         left -= curr_read;
     }
-    C = htonl(C); //?
+    C = htonl(C);
     printf("# of printable characters: %u\n", C);
     fclose(fp);
     close(sockfd);
