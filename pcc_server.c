@@ -14,7 +14,7 @@
 /* some of the code is from recreation 10 */
 
 uint32_t pcc_total[95] = {0}; /* 126-32+1 = 95 printable characters*/
-int flag, connfd = -1, listenfd = -1;
+int sigint, connfd = -1, listenfd = -1;
 
 void finish(){
     int i;
@@ -28,7 +28,7 @@ void signal_handler(){
     if(connfd < 0){
         finish();
     }
-    flag = 1;
+    sigint = 0;
 }
 
 /*
@@ -73,13 +73,12 @@ int main(int argc, char *argv[])
     char *integer_buff, *buffer;
     int bytes_written = 0, bytes_read=0, curr_written = 0, curr_read = 0;
     listenfd = -1;
-    flag = 0;
 
     struct sockaddr_in serv_addr;
     socklen_t addrsize = sizeof(struct sockaddr_in);
 
-    flag = 0; /* SIGINT flag */
-    struct sigaction new_action = {//check!!
+    sigint = 1; /* SIGINT flag */
+    struct sigaction new_action = {
             .sa_handler = signal_handler,
             .sa_flags = SA_RESTART
     };
@@ -88,7 +87,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     if(argc != 2){
-        perror("Invalid number of arguments passed to pcc_server!");
+        perror("Invalid integerber of arguments passed to pcc_server!");
         exit(1);
     }
 
@@ -125,16 +124,13 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    while(1){
-        if(flag){ /* previous client received SIGINT */
-            finish();
-        }
+    while(sigint){
         // Accept a connection.
         connfd = accept(listenfd, NULL, NULL);
         if(connfd < 0)
         {
             perror("accept failed");
-            continue; //? need to go to next iteration
+            exit(1);
         }
 
         /* get N from client */
@@ -179,7 +175,7 @@ int main(int argc, char *argv[])
         while(left > 0){
             buff_size = (left < BUFF_SIZE) ? left : BUFF_SIZE;
             buffer = malloc(buff_size);
-            if(!buffer){
+            if(!buffer){//? what to do?
                 perror("Failed to allocate memory for buffer");
                 exit(1);
             }
@@ -265,6 +261,5 @@ int main(int argc, char *argv[])
         close(connfd);
         connfd = -1;
     }
-    close(listenfd);
-    exit(0);
+    finish();
 }

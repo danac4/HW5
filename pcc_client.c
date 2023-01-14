@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <arpa/inet.h>
-#include <errno.h>
 
 #define BUFF_SIZE 1000000 /* buffer max size is 1MB */
 
@@ -22,7 +21,7 @@
  */
 int main(int argc, char *argv[]){
     FILE *fp;
-    uint32_t N, C, buff_size, num;/*N is given file size in bytes, C is the number of printable characters received from the server */
+    uint32_t N, C, buff_size, num;/* N is given file size in bytes, C is the number of printable characters received from the server */
     char *buffer,*num_buff;
     int bytes_written = 0, bytes_read=0, curr_written = 0, curr_read = 0, sockfd = -1, left;
     struct sockaddr_in serv_addr;
@@ -124,7 +123,7 @@ int main(int argc, char *argv[]){
         num_buff += curr_read;
         left -= curr_read;
     }
-    C = htonl(C);
+    C = ntohl(C);
     printf("# of printable characters: %u\n", C);
     fclose(fp);
     close(sockfd);
